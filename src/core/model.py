@@ -24,7 +24,7 @@ class BaseModel(object):
     """
 
     def __init__(self,
-                 tensorflow_session: tf.Session,
+                 tensorflow_session: tf.compat.v1.Session,
                  learning_schedule: List[Dict[str, Any]] = [],
                  train_data: Dict[str, BaseDataSource] = {},
                  test_data: Dict[str, BaseDataSource] = {},
@@ -90,13 +90,13 @@ class BaseModel(object):
         self._tester = LiveTester(self, self._test_data, use_batch_statistics_at_test)
 
         # Run-time parameters
-        with tf.variable_scope('learning_params'):
-            self.is_training = tf.placeholder(tf.bool)
-            self.use_batch_statistics = tf.placeholder(tf.bool)
+        with tf.compat.v1.variable_scope('learning_params'):
+            self.is_training = tf.compat.v1.placeholder(tf.bool)
+            self.use_batch_statistics = tf.compat.v1.placeholder(tf.bool)
             self.learning_rate_multiplier = tf.Variable(1.0, trainable=False, dtype=tf.float32)
-            self.learning_rate_multiplier_placeholder = tf.placeholder(dtype=tf.float32)
+            self.learning_rate_multiplier_placeholder = tf.compat.v1.placeholder(dtype=tf.float32)
             self.assign_learning_rate_multiplier = \
-                tf.assign(self.learning_rate_multiplier, self.learning_rate_multiplier_placeholder)
+                tf.compat.v1.assign(self.learning_rate_multiplier, self.learning_rate_multiplier_placeholder)
 
         self._build_all_models()
 
@@ -139,7 +139,7 @@ class BaseModel(object):
 
         def _build_datasource_summaries(data_sources, mode):
             """Register summary operations for input data from given data sources."""
-            with tf.variable_scope('%s_data' % mode):
+            with tf.compat.v1.variable_scope('%s_data' % mode):
                 for data_source_name, data_source in data_sources.items():
                     tensors = data_source.output_tensors
                     for key, tensor in tensors.items():
@@ -185,9 +185,9 @@ class BaseModel(object):
             logger.info('Built model.')
 
             # Print no. of parameters and lops
-            flops = tf.profiler.profile(
-                options=tf.profiler.ProfileOptionBuilder(
-                    tf.profiler.ProfileOptionBuilder.float_operation()
+            flops = tf.compat.v1.profiler.profile(
+                options=tf.compat.v1.profiler.ProfileOptionBuilder(
+                    tf.compat.v1.profiler.ProfileOptionBuilder.float_operation()
                 ).with_empty_output().build())
             logger.info('------------------------------')
             logger.info(' Approximate Model Statistics ')
@@ -195,7 +195,7 @@ class BaseModel(object):
             logger.info('FLOPS per input: {:,}'.format(flops.total_float_ops / self._batch_size))
             logger.info(
                 'Trainable Parameters: {:,}'.format(
-                    np.sum([np.prod(v.shape.as_list()) for v in tf.trainable_variables()])
+                    np.sum([np.prod(v.shape.as_list()) for v in tf.compat.v1.trainable_variables()])
                 )
             )
             logger.info('------------------------------')
@@ -204,7 +204,7 @@ class BaseModel(object):
         # Trainable parameters will be copied at test time
         if len(self._test_data) > 0:
             _build_datasource_summaries(self._test_data, mode='test')
-            with tf.variable_scope('test'):
+            with tf.compat.v1.variable_scope('test'):
                 _build_train_or_test(mode='test')
             logger.info('Built model for live testing.')
 
@@ -221,10 +221,10 @@ class BaseModel(object):
             return
 
         # Build supporting operations
-        with tf.variable_scope('savers'):
+        with tf.compat.v1.variable_scope('savers'):
             self.checkpoint.build_savers()  # Create savers
         if training:
-            with tf.variable_scope('optimize'):
+            with tf.compat.v1.variable_scope('optimize'):
                 self._build_optimizers()
 
         # Start pre-processing routines
@@ -232,7 +232,7 @@ class BaseModel(object):
             datasource.create_and_start_threads()
 
         # Initialize all variables
-        self._tensorflow_session.run(tf.global_variables_initializer())
+        self._tensorflow_session.run(tf.compat.v1.global_variables_initializer())
         self._initialized = True
 
     def _build_optimizers(self):

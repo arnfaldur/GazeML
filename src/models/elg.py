@@ -63,7 +63,7 @@ class ELG(BaseModel):
         y2 = input_tensors['landmarks'] if 'landmarks' in input_tensors else None
         y3 = input_tensors['radius'] if 'radius' in input_tensors else None
 
-        with tf.variable_scope('input_data'):
+        with tf.compat.v1.variable_scope('input_data'):
             self.summary.feature_maps('eyes', x, data_format=self._data_format_longer)
             if y1 is not None:
                 self.summary.feature_maps('hmaps_true', y1, data_format=self._data_format_longer)
@@ -72,7 +72,7 @@ class ELG(BaseModel):
         loss_terms = {}
         metrics = {}
 
-        with tf.variable_scope('hourglass'):
+        with tf.compat.v1.variable_scope('hourglass'):
             # TODO: Find better way to specify no. landmarks
             if y1 is not None:
                 if self._data_format == 'NCHW':
@@ -84,7 +84,7 @@ class ELG(BaseModel):
             assert self._hg_num_landmarks == 18
 
             # Prepare for Hourglass by downscaling via conv
-            with tf.variable_scope('pre'):
+            with tf.compat.v1.variable_scope('pre'):
                 n = self._hg_num_feature_maps
                 x = self._apply_conv(x, num_features=n, kernel_size=7,
                                      stride=self._hg_first_layer_stride)
@@ -95,7 +95,7 @@ class ELG(BaseModel):
             # Hourglass blocks
             x_prev = x
             for i in range(self._hg_num_modules):
-                with tf.variable_scope('hg_%d' % (i + 1)):
+                with tf.compat.v1.variable_scope('hg_%d' % (i + 1)):
                     x = self._build_hourglass(x, steps_to_go=4, num_features=self._hg_num_feature_maps)
                     x, h = self._build_hourglass_after(
                         x_prev, x, do_merge=(i < (self._hg_num_modules - 1)),
@@ -113,7 +113,7 @@ class ELG(BaseModel):
 
         # Soft-argmax
         x = self._calculate_landmarks(x)
-        with tf.variable_scope('upscale'):
+        with tf.compat.v1.variable_scope('upscale'):
             # Upscale since heatmaps are half-scale of original image
             x *= self._hg_first_layer_stride
             if y2 is not None:
@@ -121,12 +121,12 @@ class ELG(BaseModel):
             outputs['landmarks'] = x
 
         # Fully-connected layers for radius regression
-        with tf.variable_scope('radius'):
+        with tf.compat.v1.variable_scope('radius'):
             x = tf.contrib.layers.flatten(tf.transpose(x, perm=[0, 2, 1]))
             for i in range(3):
-                with tf.variable_scope('fc%d' % (i + 1)):
+                with tf.compat.v1.variable_scope('fc%d' % (i + 1)):
                     x = tf.nn.relu(self._apply_bn(self._apply_fc(x, 100)))
-            with tf.variable_scope('out'):
+            with tf.compat.v1.variable_scope('out'):
                 x = self._apply_fc(x, 1)
             outputs['radius'] = x
             if y3 is not None:
@@ -185,19 +185,19 @@ class ELG(BaseModel):
         )
 
     def _build_residual_block(self, x, num_in, num_out, name='res_block'):
-        with tf.variable_scope(name):
+        with tf.compat.v1.variable_scope(name):
             half_num_out = max(int(num_out/2), 1)
             c = x
-            with tf.variable_scope('conv1'):
+            with tf.compat.v1.variable_scope('conv1'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=half_num_out, kernel_size=1, stride=1)
-            with tf.variable_scope('conv2'):
+            with tf.compat.v1.variable_scope('conv2'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=half_num_out, kernel_size=3, stride=1)
-            with tf.variable_scope('conv3'):
+            with tf.compat.v1.variable_scope('conv3'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=num_out, kernel_size=1, stride=1)
-            with tf.variable_scope('skip'):
+            with tf.compat.v1.variable_scope('skip'):
                 if num_in == num_out:
                     s = tf.identity(x)
                 else:
@@ -206,7 +206,7 @@ class ELG(BaseModel):
         return x
 
     def _build_hourglass(self, x, steps_to_go, num_features, depth=1):
-        with tf.variable_scope('depth%d' % depth):
+        with tf.compat.v1.variable_scope('depth%d' % depth):
             # Upper branch
             up1 = x
             for i in range(self._hg_num_residual_blocks):
@@ -234,7 +234,7 @@ class ELG(BaseModel):
             # Upsample
             if self._data_format == 'NCHW':  # convert to NHWC
                 low3 = tf.transpose(low3, (0, 2, 3, 1))
-            up2 = tf.image.resize_bilinear(
+            up2 = tf.compat.v1.image.resize_bilinear(
                     low3,
                     up1.shape[1:3] if self._data_format == 'NHWC' else up1.shape[2:4],
                     align_corners=True,
@@ -245,7 +245,7 @@ class ELG(BaseModel):
         return up1 + up2
 
     def _build_hourglass_after(self, x_prev, x_now, do_merge=True):
-        with tf.variable_scope('after'):
+        with tf.compat.v1.variable_scope('after'):
             for j in range(self._hg_num_residual_blocks):
                 x_now = self._build_residual_block(x_now, self._hg_num_feature_maps,
                                                    self._hg_num_feature_maps,
@@ -254,15 +254,15 @@ class ELG(BaseModel):
             x_now = self._apply_bn(x_now)
             x_now = tf.nn.relu(x_now)
 
-            with tf.variable_scope('hmap'):
+            with tf.compat.v1.variable_scope('hmap'):
                 h = self._apply_conv(x_now, self._hg_num_landmarks, kernel_size=1, stride=1)
 
         x_next = x_now
         if do_merge:
-            with tf.variable_scope('merge'):
-                with tf.variable_scope('h'):
+            with tf.compat.v1.variable_scope('merge'):
+                with tf.compat.v1.variable_scope('h'):
                     x_hmaps = self._apply_conv(h, self._hg_num_feature_maps, kernel_size=1, stride=1)
-                with tf.variable_scope('x'):
+                with tf.compat.v1.variable_scope('x'):
                     x_now = self._apply_conv(x_now, self._hg_num_feature_maps, kernel_size=1, stride=1)
                 x_next += x_prev + x_hmaps
         return x_next, h
@@ -271,7 +271,7 @@ class ELG(BaseModel):
 
     def _calculate_landmarks(self, x):
         """Estimate landmark location from heatmaps."""
-        with tf.variable_scope('argsoftmax'):
+        with tf.compat.v1.variable_scope('argsoftmax'):
             if self._data_format == 'NHWC':
                 _, h, w, _ = x.shape.as_list()
             else:

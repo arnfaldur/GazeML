@@ -16,7 +16,7 @@ class UnityEyes(BaseDataSource):
     """UnityEyes data loading class."""
 
     def __init__(self,
-                 tensorflow_session: tf.Session,
+                 tensorflow_session: tf.compat.v1.Session,
                  batch_size: int,
                  unityeyes_path: str,
                  testing=False,

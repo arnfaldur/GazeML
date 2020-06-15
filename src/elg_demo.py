@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     # Check if GPU is available
     from tensorflow.python.client import device_lib
-    session_config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+    session_config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True))
     gpu_available = False
     try:
         gpus = [d for d in device_lib.list_local_devices(config=session_config)
@@ -48,7 +48,7 @@ if __name__ == '__main__':
         pass
 
     # Initialize Tensorflow session
-    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     with tf.Session(config=session_config) as session:
 
         # Declare some parameters
@@ -60,12 +60,12 @@ if __name__ == '__main__':
             assert os.path.isfile(args.from_video)
             data_source = Video(args.from_video,
                                 tensorflow_session=session, batch_size=batch_size,
-                                data_format='NCHW' if gpu_available else 'NHWC',
+                                data_format='NHWC' if gpu_available else 'NHWC',
                                 eye_image_shape=(108, 180))
         else:
             data_source = Webcam(tensorflow_session=session, batch_size=batch_size,
                                  camera_id=args.camera_id, fps=args.fps,
-                                 data_format='NCHW' if gpu_available else 'NHWC',
+                                 data_format='NHWC' if gpu_available else 'NHWC',
                                  eye_image_shape=(36, 60))
 
         # Define model
@@ -102,6 +102,7 @@ if __name__ == '__main__':
             video_out_done = threading.Condition()
 
             def _record_frame():
+                print("recording fram")
                 global video_out
                 last_frame_time = None
                 out_fps = 30

@@ -15,7 +15,7 @@ class HDF5Source(BaseDataSource):
     """HDF5 data loading class (using h5py)."""
 
     def __init__(self,
-                 tensorflow_session: tf.Session,
+                 tensorflow_session: tf.compat.v1.Session,
                  batch_size: int,
                  keys_to_use: List[str],
                  hdf_path: str,

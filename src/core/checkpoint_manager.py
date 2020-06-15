@@ -18,11 +18,11 @@ class CheckpointManager(object):
         self._model = model
 
     def build_savers(self):
-        """Create tf.train.Saver instances."""
-        all_saveable_vars = sorted(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) +
-                                   tf.get_collection(tf.GraphKeys.SAVEABLE_OBJECTS) +
-                                   tf.get_collection(tf.GraphKeys.MOVING_AVERAGE_VARIABLES) +
-                                   tf.get_collection_ref('batch_norm_non_trainable'),
+        """Create tf.compat.v1.train.Saver instances."""
+        all_saveable_vars = sorted(tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES) +
+                                   tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.SAVEABLE_OBJECTS) +
+                                   tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.MOVING_AVERAGE_VARIABLES) +
+                                   tf.compat.v1.get_collection_ref('batch_norm_non_trainable'),
                                    key=lambda v: v.name)
 
         # Grab all available prefixes
@@ -42,7 +42,7 @@ class CheckpointManager(object):
         for prefix in all_prefixes:
             vars_to_save = [v for v in all_saveable_vars if v.name.startswith(prefix + '/')]
             if len(vars_to_save):
-                self._savers[prefix] = tf.train.Saver(vars_to_save, max_to_keep=2)
+                self._savers[prefix] = tf.compat.v1.train.Saver(vars_to_save, max_to_keep=2)
 
     def load_all(self):
         """Load all available weights for each known prefix."""

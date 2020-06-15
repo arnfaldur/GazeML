@@ -20,7 +20,7 @@ class FramesSource(BaseDataSource):
     """Preprocessing of stream of frames."""
 
     def __init__(self,
-                 tensorflow_session: tf.Session,
+                 tensorflow_session: tf.compat.v1.Session,
                  batch_size: int,
                  eye_image_shape: Tuple[int, int],
                  staging: bool=False,
