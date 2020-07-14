@@ -2,7 +2,6 @@
 from typing import Dict
 
 import numpy as np
-import scipy
 import tensorflow as tf
 
 from core import BaseDataSource, BaseModel

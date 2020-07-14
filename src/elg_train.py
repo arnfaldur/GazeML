@@ -19,9 +19,9 @@ if __name__ == '__main__':
     )
 
     # Initialize Tensorflow session
-    tf.logging.set_verbosity(tf.logging.ERROR)
-    gpu_options = tf.GPUOptions(allow_growth=True)
-    with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as session:
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+    gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+    with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options)) as session:
 
         # Declare some parameters
         batch_size = 32
@@ -94,6 +94,8 @@ if __name__ == '__main__':
             # Data sources for training (and testing).
             train_data={'synthetic': unityeyes},
         )
+
+        tf.compat.v1.summary.FileWriter('./logs', session.graph)
 
         # Train this model for a set number of epochs
         model.train(

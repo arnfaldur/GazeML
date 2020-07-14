@@ -49,8 +49,7 @@ if __name__ == '__main__':
 
     # Initialize Tensorflow session
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    with tf.Session(config=session_config) as session:
-
+    with tf.compat.v1.Session(config=session_config) as session:
         # Declare some parameters
         batch_size = 2
 
@@ -94,6 +93,7 @@ if __name__ == '__main__':
                 ],
             )
 
+        tf.compat.v1.summary.FileWriter('./logs', session.graph)
         # Record output frames to file if requested
         if args.record_video:
             video_out = None
@@ -168,6 +168,7 @@ if __name__ == '__main__':
                 for j in range(batch_size):
                     frame_index = output['frame_index'][j]
                     if frame_index not in data_source._frames:
+                        print("within frame index " + str(time.time()))
                         continue
                     frame = data_source._frames[frame_index]
 
@@ -211,7 +212,7 @@ if __name__ == '__main__':
                         cv.drawMarker(
                             eye_image_annotated,
                             tuple(np.round(eye_upscale*eye_landmarks[16, :]).astype(np.int32)),
-                            color=(0, 255, 255), markerType=cv.MARKER_CROSS, markerSize=4,
+                            color=(0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=4,
                             thickness=1, line_type=cv.LINE_AA,
                         )
                     face_index = int(eye_index / 2)

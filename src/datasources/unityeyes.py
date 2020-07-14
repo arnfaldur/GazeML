@@ -160,7 +160,7 @@ class UnityEyes(BaseDataSource):
         if h_pitch > 180.0:  # Need to correct pitch
             h_pitch -= 360.0
         h_yaw -= 180.0  # Need to correct yaw
-        if abs(h_pitch) > 20 or abs(h_yaw) > 20:
+        if abs(h_pitch) > 25 or abs(h_yaw) > 25:
             return None
 
         # Prepare to segment eye image

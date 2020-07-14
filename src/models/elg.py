@@ -122,7 +122,7 @@ class ELG(BaseModel):
 
         # Fully-connected layers for radius regression
         with tf.compat.v1.variable_scope('radius'):
-            x = tf.contrib.layers.flatten(tf.transpose(x, perm=[0, 2, 1]))
+            x = tf.keras.layers.Flatten()(tf.transpose(x, perm=[0, 2, 1]))
             for i in range(3):
                 with tf.compat.v1.variable_scope('fc%d' % (i + 1)):
                     x = tf.nn.relu(self._apply_bn(self._apply_fc(x, 100)))
@@ -138,51 +138,44 @@ class ELG(BaseModel):
         return outputs, loss_terms, metrics
 
     def _apply_conv(self, tensor, num_features, kernel_size=3, stride=1):
-        return tf.layers.conv2d(
-            tensor,
+        return tf.keras.layers.Conv2D(
             num_features,
             kernel_size=kernel_size,
             strides=stride,
             padding='SAME',
-            kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-4),
+            kernel_initializer=tf.compat.v1.truncated_normal_initializer(mean=0.0, stddev=0.01),
+            kernel_regularizer=tf.keras.regularizers.l2(1e-4),
             bias_initializer=tf.zeros_initializer(),
             data_format=self._data_format_longer,
             name='conv',
-        )
+        )(tensor)
 
     def _apply_fc(self, tensor, num_outputs):
-        return tf.layers.dense(
-            tensor,
+        return tf.keras.layers.Dense(
             num_outputs,
             use_bias=True,
-            kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-4),
+            kernel_initializer=tf.compat.v1.truncated_normal_initializer(mean=0.0, stddev=0.01),
+            kernel_regularizer=tf.keras.regularizers.l2(1e-4),
             bias_initializer=tf.zeros_initializer(),
             name='fc',
-        )
+        )(tensor)
 
     def _apply_pool(self, tensor, kernel_size=3, stride=2):
-        tensor = tf.layers.max_pooling2d(
-            tensor,
+        return tf.keras.layers.MaxPooling2D(
             pool_size=kernel_size,
             strides=stride,
             padding='SAME',
             data_format=self._data_format_longer,
             name='pool',
-        )
-        return tensor
+        )(tensor)
 
     def _apply_bn(self, tensor):
-        return tf.contrib.layers.batch_norm(
-            tensor,
+        return tf.keras.layers.BatchNormalization(
+            name="BatchNorm",
             scale=True,
             center=True,
-            is_training=self.use_batch_statistics,
             trainable=True,
-            data_format=self._data_format,
-            updates_collections=None,
-        )
+        )(tensor)
 
     def _build_residual_block(self, x, num_in, num_out, name='res_block'):
         with tf.compat.v1.variable_scope(name):

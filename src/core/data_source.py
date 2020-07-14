@@ -6,7 +6,7 @@ import threading
 import time
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class BaseDataSource(object):
             self._fread_queue_capacity = (num_threads + 1) * batch_size
         self._fread_queue = queue.Queue(maxsize=self._fread_queue_capacity)
 
-        with tf.variable_scope(''.join(c for c in self.short_name if c.isalnum())):
+        with tf.compat.v1.variable_scope(''.join(c for c in self.short_name if c.isalnum())):
             # Setup preprocess queue
             labels, dtypes, shapes = self._determine_dtypes_and_shapes()
             self._preprocess_queue_capacity = (min_after_dequeue + (num_threads + 1) * batch_size
@@ -67,12 +67,12 @@ class BaseDataSource(object):
                         dtypes=dtypes, shapes=shapes,
                 )
             else:
-                self._preprocess_queue = tf.FIFOQueue(
+                self._preprocess_queue = tf.queue.FIFOQueue(
                         capacity=self._preprocess_queue_capacity,
                         dtypes=dtypes, shapes=shapes,
                 )
             self._tensors_to_enqueue = OrderedDict([
-                (label, tf.placeholder(dtype, shape=shape, name=label))
+                (label, tf.compat.v1.placeholder(dtype, shape=shape, name=label))
                 for label, dtype, shape in zip(labels, dtypes, shapes)
             ])
 
