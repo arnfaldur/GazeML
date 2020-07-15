@@ -3,6 +3,7 @@ from typing import Dict
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 from core import BaseDataSource, BaseModel
 from datasources import UnityEyes
@@ -67,9 +68,9 @@ class DPG(BaseModel):
     def _augment_training_images(self, images, mode):
         if mode == 'test':
             return images
-        with tf.variable_scope('augment'):
+        with tf.compat.v1.variable_scope('augment'):
             if self._data_format == 'NCHW':
-                images = tf.transpose(images, perm=[0, 2, 3, 1])
+                images = tf.transpose(a=images, perm=[0, 2, 3, 1])
             n, h, w, _ = images.shape.as_list()
             if self._column_of_ones is None:
                 self._column_of_ones = tf.ones((n, 1))
@@ -77,16 +78,16 @@ class DPG(BaseModel):
             transforms = tf.concat([
                 self._column_of_ones,
                 self._column_of_zeros,
-                tf.truncated_normal((n, 1), mean=0, stddev=.05*w),
+                tf.random.truncated_normal((n, 1), mean=0, stddev=.05*w),
                 self._column_of_zeros,
                 self._column_of_ones,
-                tf.truncated_normal((n, 1), mean=0, stddev=.05*h),
+                tf.random.truncated_normal((n, 1), mean=0, stddev=.05*h),
                 self._column_of_zeros,
                 self._column_of_zeros,
             ], axis=1)
-            images = tf.contrib.image.transform(images, transforms, interpolation='BILINEAR')
+            images = tfa.image.transform(images, transforms, interpolation='BILINEAR')
             if self._data_format == 'NCHW':
-                images = tf.transpose(images, perm=[0, 3, 1, 2])
+                images = tf.transpose(a=images, perm=[0, 3, 1, 2])
         return images
 
     def build_model(self, data_sources: Dict[str, BaseDataSource], mode: str):
@@ -97,7 +98,7 @@ class DPG(BaseModel):
         y1 = input_tensors['gazemaps'] if 'gazemaps' in input_tensors else None
         y2 = input_tensors['gaze'] if 'gaze' in input_tensors else None
 
-        with tf.variable_scope('input_data'):
+        with tf.compat.v1.variable_scope('input_data'):
             # self.summary.feature_maps('eyes', x, data_format=self._data_format_longer)
             if y1 is not None:
                 self.summary.feature_maps('gazemaps', y1, data_format=self._data_format_longer)
@@ -109,9 +110,9 @@ class DPG(BaseModel):
         # Lightly augment training data
         x = self._augment_training_images(x, mode)
 
-        with tf.variable_scope('hourglass'):
+        with tf.compat.v1.variable_scope('hourglass'):
             # Prepare for Hourglass by downscaling via conv
-            with tf.variable_scope('pre'):
+            with tf.compat.v1.variable_scope('pre'):
                 n = self._hg_num_feature_maps
                 x = self._apply_conv(x, num_features=n, kernel_size=7,
                                      stride=self._hg_first_layer_stride)
@@ -123,7 +124,7 @@ class DPG(BaseModel):
             x_prev = x
             gmap = None
             for i in range(self._hg_num_modules):
-                with tf.variable_scope('hg_%d' % (i + 1)):
+                with tf.compat.v1.variable_scope('hg_%d' % (i + 1)):
                     x = self._build_hourglass(x, steps_to_go=4, num_features=self._hg_num_feature_maps)
                     x, gmap = self._build_hourglass_after(
                         x_prev, x, do_merge=(i < (self._hg_num_modules - 1)),
@@ -132,7 +133,7 @@ class DPG(BaseModel):
             if y1 is not None:
                 # Cross-entropy loss
                 metrics['gazemaps_ce'] = -tf.reduce_mean(tf.reduce_sum(
-                    y1 * tf.log(tf.clip_by_value(gmap, 1e-10, 1.0)),  # avoid NaN
+                    y1 * tf.math.log(tf.clip_by_value(gmap, 1e-10, 1.0)),  # avoid NaN
                     axis=[1, 2, 3]))
                 # metrics['gazemaps_ce'] = tf.losses.softmax_cross_entropy(
                 #     tf.reshape(y1, (self._batch_size, -1)),
@@ -143,33 +144,33 @@ class DPG(BaseModel):
             outputs['gazemaps'] = gmap
             self.summary.feature_maps('bottleneck', gmap, data_format=self._data_format_longer)
 
-        with tf.variable_scope('densenet'):
+        with tf.compat.v1.variable_scope('densenet'):
             # DenseNet blocks to regress to gaze
             for i in range(self._dn_num_dense_blocks):
-                with tf.variable_scope('block%d' % (i + 1)):
+                with tf.compat.v1.variable_scope('block%d' % (i + 1)):
                     x = self._apply_dense_block(x,
                                                 num_layers=self._dn_num_layers_per_block[i])
                     if i == self._dn_num_dense_blocks - 1:
                         break
-                with tf.variable_scope('trans%d' % (i + 1)):
+                with tf.compat.v1.variable_scope('trans%d' % (i + 1)):
                     x = self._apply_transition_layer(x)
 
             # Global average pooling
-            with tf.variable_scope('post'):
+            with tf.compat.v1.variable_scope('post'):
                 x = self._apply_bn(x)
                 x = tf.nn.relu(x)
                 if self._data_format == 'NCHW':
-                    x = tf.reduce_mean(x, axis=[2, 3])
+                    x = tf.reduce_mean(input_tensor=x, axis=[2, 3])
                 else:
-                    x = tf.reduce_mean(x, axis=[1, 2])
-                x = tf.contrib.layers.flatten(x)
+                    x = tf.reduce_mean(input_tensor=x, axis=[1, 2])
+                x = tf.keras.layers.Flatten()(x)
 
             # Output layer
-            with tf.variable_scope('output'):
+            with tf.compat.v1.variable_scope('output'):
                 x = self._apply_fc(x, 2)
                 outputs['gaze'] = x
                 if y2 is not None:
-                    metrics['gaze_mse'] = tf.reduce_mean(tf.squared_difference(x, y2))
+                    metrics['gaze_mse'] = tf.reduce_mean(input_tensor=tf.math.squared_difference(x, y2))
                     metrics['gaze_ang'] = util.gaze.tensorflow_angular_error_from_pitchyaw(y2, x)
 
         # Combine two loss terms
@@ -180,66 +181,60 @@ class DPG(BaseModel):
         return outputs, loss_terms, metrics
 
     def _apply_conv(self, tensor, num_features, kernel_size=3, stride=1):
-        return tf.layers.conv2d(
-            tensor,
+        return tf.keras.layers.Conv2D(
             num_features,
             kernel_size=kernel_size,
             strides=stride,
             padding='SAME',
-            kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-4),
-            bias_initializer=tf.zeros_initializer(),
+            kernel_initializer=tf.compat.v1.truncated_normal_initializer(mean=0.0, stddev=0.01),
+            kernel_regularizer=tf.keras.regularizers.l2(1e-4),
+            bias_initializer=tf.compat.v1.zeros_initializer(),
             data_format=self._data_format_longer,
             name='conv',
-        )
+        )(tensor)
 
     def _apply_fc(self, tensor, num_outputs):
-        return tf.layers.dense(
-            tensor,
+        return tf.keras.layers.Dense(
             num_outputs,
             use_bias=True,
-            kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-4),
-            bias_initializer=tf.zeros_initializer(),
+            kernel_initializer=tf.compat.v1.truncated_normal_initializer(mean=0.0, stddev=0.01),
+            kernel_regularizer=tf.keras.regularizers.l2(1e-4),
+            bias_initializer=tf.compat.v1.zeros_initializer(),
             name='fc',
-        )
+        )(tensor)
 
     def _apply_pool(self, tensor, kernel_size=3, stride=2):
-        tensor = tf.layers.max_pooling2d(
-            tensor,
+        tensor = tf.keras.layers.MaxPool2D(
             pool_size=kernel_size,
             strides=stride,
             padding='SAME',
             data_format=self._data_format_longer,
             name='pool',
-        )
+        )(tensor)
         return tensor
 
     def _apply_bn(self, tensor):
-        return tf.contrib.layers.batch_norm(
-            tensor,
+        return tf.keras.layers.BatchNormalization(
+            name="BatchNorm",
             scale=True,
             center=True,
-            is_training=self.use_batch_statistics,
             trainable=True,
-            data_format=self._data_format,
-            updates_collections=None,
-        )
+        )(tensor)
 
     def _build_residual_block(self, x, num_in, num_out, name='res_block'):
-        with tf.variable_scope(name):
+        with tf.compat.v1.variable_scope(name):
             half_num_out = max(int(num_out/2), 1)
             c = x
-            with tf.variable_scope('conv1'):
+            with tf.compat.v1.variable_scope('conv1'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=half_num_out, kernel_size=1, stride=1)
-            with tf.variable_scope('conv2'):
+            with tf.compat.v1.variable_scope('conv2'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=half_num_out, kernel_size=3, stride=1)
-            with tf.variable_scope('conv3'):
+            with tf.compat.v1.variable_scope('conv3'):
                 c = tf.nn.relu(self._apply_bn(c))
                 c = self._apply_conv(c, num_features=num_out, kernel_size=1, stride=1)
-            with tf.variable_scope('skip'):
+            with tf.compat.v1.variable_scope('skip'):
                 if num_in == num_out:
                     s = tf.identity(x)
                 else:
@@ -248,7 +243,7 @@ class DPG(BaseModel):
         return x
 
     def _build_hourglass(self, x, steps_to_go, num_features, depth=1):
-        with tf.variable_scope('depth%d' % depth):
+        with tf.compat.v1.variable_scope('depth%d' % depth):
             # Upper branch
             up1 = x
             for i in range(self._hg_num_residual_blocks):
@@ -275,19 +270,19 @@ class DPG(BaseModel):
                                                   name='low3_%d' % (i + 1))
             # Upsample
             if self._data_format == 'NCHW':  # convert to NHWC
-                low3 = tf.transpose(low3, (0, 2, 3, 1))
-            up2 = tf.image.resize_bilinear(
+                low3 = tf.transpose(a=low3, perm=(0, 2, 3, 1))
+            up2 = tf.image.resize(
                     low3,
                     up1.shape[1:3] if self._data_format == 'NHWC' else up1.shape[2:4],
-                    align_corners=True,
+                    method=tf.image.ResizeMethod.BILINEAR,
                   )
             if self._data_format == 'NCHW':  # convert back from NHWC
-                up2 = tf.transpose(up2, (0, 3, 1, 2))
+                up2 = tf.transpose(a=up2, perm=(0, 3, 1, 2))
 
         return up1 + up2
 
     def _build_hourglass_after(self, x_prev, x_now, do_merge=True):
-        with tf.variable_scope('after'):
+        with tf.compat.v1.variable_scope('after'):
             for j in range(self._hg_num_residual_blocks):
                 x_now = self._build_residual_block(x_now, self._hg_num_feature_maps,
                                                    self._hg_num_feature_maps,
@@ -296,15 +291,15 @@ class DPG(BaseModel):
             x_now = self._apply_bn(x_now)
             x_now = tf.nn.relu(x_now)
 
-            with tf.variable_scope('gmap'):
+            with tf.compat.v1.variable_scope('gmap'):
                 gmap = self._apply_conv(x_now, self._hg_num_gazemaps, kernel_size=1, stride=1)
 
         x_next = x_now
         if do_merge:
-            with tf.variable_scope('merge'):
-                with tf.variable_scope('gmap'):
+            with tf.compat.v1.variable_scope('merge'):
+                with tf.compat.v1.variable_scope('gmap'):
                     x_gmaps = self._apply_conv(gmap, self._hg_num_feature_maps, kernel_size=1, stride=1)
-                with tf.variable_scope('x'):
+                with tf.compat.v1.variable_scope('x'):
                     x_now = self._apply_conv(x_now, self._hg_num_feature_maps, kernel_size=1, stride=1)
                 x_next += x_prev + x_gmaps
 
@@ -328,13 +323,13 @@ class DPG(BaseModel):
         c_index = 1 if self._data_format == 'NCHW' else 3
         x_prev = x
         for i in range(num_layers):
-            with tf.variable_scope('layer%d' % (i + 1)):
+            with tf.compat.v1.variable_scope('layer%d' % (i + 1)):
                 n = x.shape.as_list()[c_index]
-                with tf.variable_scope('bottleneck'):
+                with tf.compat.v1.variable_scope('bottleneck'):
                     x = self._apply_composite_function(x,
                                                        num_features=min(n, 4*self._dn_growth_rate),
                                                        kernel_size=1)
-                with tf.variable_scope('composite'):
+                with tf.compat.v1.variable_scope('composite'):
                     x = self._apply_composite_function(x, num_features=self._dn_growth_rate,
                                                        kernel_size=3)
                 if self._data_format == 'NCHW':
@@ -349,8 +344,8 @@ class DPG(BaseModel):
         x = self._apply_composite_function(
             x, num_features=int(self._dn_compression_factor * x.shape.as_list()[c_index]),
             kernel_size=1)
-        x = tf.layers.average_pooling2d(x, pool_size=2, strides=2, padding='valid',
-                                        data_format=self._data_format_longer)
+        x = tf.keras.layers.AveragePooling2D(pool_size=2, strides=2, padding='valid',
+                                        data_format=self._data_format_longer)(x)
         return x
 
     def _apply_composite_function(self, x, num_features=_dn_growth_rate, kernel_size=3):

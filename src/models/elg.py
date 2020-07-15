@@ -10,7 +10,7 @@ from core import BaseDataSource, BaseModel
 
 def _tf_mse(x, y):
     """Tensorflow call for mean-squared error."""
-    return tf.reduce_mean(tf.squared_difference(x, y))
+    return tf.reduce_mean(tf.math.squared_difference(x, y))
 
 
 class ELG(BaseModel):

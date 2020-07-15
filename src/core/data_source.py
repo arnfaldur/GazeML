@@ -16,7 +16,7 @@ class BaseDataSource(object):
     """Base DataSource class."""
 
     def __init__(self,
-                 tensorflow_session: tf.Session,
+                 tensorflow_session: tf.compat.v1.Session,
                  data_format: str = 'NHWC',
                  batch_size: int = 32,
                  num_threads: int = max(4, multiprocessing.cpu_count()),
@@ -28,7 +28,7 @@ class BaseDataSource(object):
                  testing=False,
                  ):
         """Initialize a data source instance."""
-        assert tensorflow_session is not None and isinstance(tensorflow_session, tf.Session)
+        assert tensorflow_session is not None and isinstance(tensorflow_session, tf.compat.v1.Session)
         assert isinstance(batch_size, int) and batch_size > 0
         if shuffle is None:
             shuffle = staging
@@ -61,7 +61,7 @@ class BaseDataSource(object):
                                                if preprocess_queue_capacity == 0
                                                else preprocess_queue_capacity)
             if shuffle:
-                self._preprocess_queue = tf.RandomShuffleQueue(
+                self._preprocess_queue = tf.queue.RandomShuffleQueue(
                         capacity=self._preprocess_queue_capacity,
                         min_after_dequeue=min_after_dequeue,
                         dtypes=dtypes, shapes=shapes,
@@ -91,8 +91,10 @@ class BaseDataSource(object):
                     (label, tensor) for label, tensor in zip(labels, output_tensors)
                 ])
             else:
+                print("killing")
                 # Setup on-GPU staging area
-                self._staging_area = tf.contrib.staging.StagingArea(
+                from tensorflow.python.ops.data_flow_ops import StagingArea
+                self._staging_area = StagingArea(
                     dtypes=dtypes,
                     shapes=[tuple([batch_size] + list(shape)) for shape in shapes],
                     capacity=1,  # This does not have to be high

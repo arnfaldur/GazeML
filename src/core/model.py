@@ -238,9 +238,9 @@ class BaseModel(object):
     def _build_optimizers(self):
         """Based on learning schedule, create optimizer instances."""
         self._optimize_ops = []
-        all_trainable_variables = tf.trainable_variables()
-        all_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        all_reg_losses = tf.losses.get_regularization_losses()
+        all_trainable_variables = tf.compat.v1.trainable_variables()
+        all_update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+        all_reg_losses = tf.compat.v1.losses.get_regularization_losses()
         for spec in self._learning_schedule:
             optimize_ops = []
             update_ops = []
@@ -264,7 +264,7 @@ class BaseModel(object):
                         if l.name.startswith(prefix)
                     ]
 
-                optimizer_class = tf.train.AdamOptimizer
+                optimizer_class = tf.compat.v1.train.AdamOptimizer
                 optimizer = optimizer_class(
                     learning_rate=self.learning_rate_multiplier * spec['learning_rate'],
                     # beta1=0.9,
@@ -272,7 +272,7 @@ class BaseModel(object):
                 )
                 final_loss = self.loss_terms['train'][loss_term_key]
                 if len(reg_losses) > 0:
-                    final_loss += tf.reduce_sum(reg_losses)
+                    final_loss += tf.reduce_sum(input_tensor=reg_losses)
                 with tf.control_dependencies(update_ops):
                     gradients, variables = zip(*optimizer.compute_gradients(
                         loss=final_loss,

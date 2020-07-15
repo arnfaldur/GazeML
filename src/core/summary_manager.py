@@ -30,7 +30,7 @@ class SummaryManager(object):
 
     def _prepare_for_write(self):
         """Merge together cheap and expensive ops separately."""
-        self._writer = tf.summary.FileWriter(self._model.output_path,
+        self._writer = tf.compat.v1.summary.FileWriter(self._model.output_path,
                                              self._tensorflow_session.graph)
         for mode in ('train', 'test', 'full_test'):
             self._expensive_ops[mode].update(self._cheap_ops[mode])
@@ -106,7 +106,7 @@ class SummaryManager(object):
     def image(self, name, tensor, data_format='channels_last', **kwargs):
         """TODO: Log summary of image."""
         if data_format == 'channels_first':
-            tensor = tf.transpose(tensor, perm=(0, 2, 3, 1))
+            tensor = tf.transpose(a=tensor, perm=(0, 2, 3, 1))
         c = tensor.shape.as_list()[-1]
         if c == 3:  # Assume RGB and convert to BGR for visualization
             tensor = tensor[:, :, :, ::-1]   # TODO: find better solution
@@ -121,15 +121,15 @@ class SummaryManager(object):
         # See: https://gist.github.com/kukuruza/03731dc494603ceab0c5
         # input shape: (Y, X, C, N)
         if c != 1 and c != 3:
-            tensor = tf.reduce_mean(tensor, axis=2, keep_dims=True)
+            tensor = tf.reduce_mean(input_tensor=tensor, axis=2, keepdims=True)
             c = 1
         # shape is now: (Y, X, 1|C, N)
-        v_min = tf.reduce_min(tensor)
-        v_max = tf.reduce_max(tensor)
+        v_min = tf.reduce_min(input_tensor=tensor)
+        v_max = tf.reduce_max(input_tensor=tensor)
         tensor -= v_min
         tensor *= 1.0 / (v_max - v_min)
-        tensor = tf.pad(tensor, [[1, 0], [1, 0], [0, 0], [0, 0]], 'CONSTANT')
-        tensor = tf.transpose(tensor, perm=(3, 0, 1, 2))
+        tensor = tf.pad(tensor=tensor, paddings=[[1, 0], [1, 0], [0, 0], [0, 0]], mode='CONSTANT')
+        tensor = tf.transpose(a=tensor, perm=(3, 0, 1, 2))
         # shape is now: (N, Y, X, C)
         # place tensor on grid
         num_tensor_x = int(np.round(np.sqrt(num_tensor)))
@@ -142,13 +142,13 @@ class SummaryManager(object):
         w += 1
         tensor = tf.reshape(tensor, (num_tensor_x, h * num_tensor_y, w, c))
         # shape is now: (N_x, Y * N_y, X, c)
-        tensor = tf.transpose(tensor, (0, 2, 1, 3))
+        tensor = tf.transpose(a=tensor, perm=(0, 2, 1, 3))
         # shape is now: (N_x, X, Y * N_y, c)
         tensor = tf.reshape(tensor, (1, w * num_tensor_x, h * num_tensor_y, c))
         # shape is now: (1, X * N_x, Y * N_y, c)
-        tensor = tf.transpose(tensor, (0, 2, 1, 3))
+        tensor = tf.transpose(a=tensor, perm=(0, 2, 1, 3))
         # shape is now: (1, Y * N_y, X * N_x, c)
-        tensor = tf.pad(tensor, [[0, 0], [0, 1], [0, 1], [0, 0]], 'CONSTANT')
+        tensor = tf.pad(tensor=tensor, paddings=[[0, 0], [0, 1], [0, 1], [0, 0]], mode='CONSTANT')
 
         self.image(name, tensor, **kwargs)
 
@@ -159,20 +159,20 @@ class SummaryManager(object):
         `tf.layers.conv2d` or for the filters to be defined in the same scope as the output tensor.
         """
         assert 'data_format' not in kwargs
-        with tf.name_scope('viz_filters'):
+        with tf.compat.v1.name_scope('viz_filters'):
             # Find tensor holding trainable kernel weights
             name_stem = '/'.join(tensor.name.split('/')[:-1]) + '/kernel'
-            matching_tensors = [t for t in tf.trainable_variables() if t.name.startswith(name_stem)]
+            matching_tensors = [t for t in tf.compat.v1.trainable_variables() if t.name.startswith(name_stem)]
             assert len(matching_tensors) == 1
             filters = matching_tensors[0]
 
             # H x W x C x N
             h, w, c, n = filters.shape.as_list()
-            filters = tf.transpose(filters, perm=(3, 2, 0, 1))
+            filters = tf.transpose(a=filters, perm=(3, 2, 0, 1))
             # N x C x H x W
             filters = tf.reshape(filters, (n*c, 1, h, w))
             # NC x 1 x H x W
-            filters = tf.transpose(filters, perm=(2, 3, 1, 0))
+            filters = tf.transpose(a=filters, perm=(2, 3, 1, 0))
             # H x W x 1 x NC
 
             self._4d_tensor(name, filters, **kwargs)
@@ -180,36 +180,36 @@ class SummaryManager(object):
     def feature_maps(self, name, tensor, mean_across_channels=True, data_format='channels_last',
                      **kwargs):
         """Log summary of feature maps / image activations."""
-        with tf.name_scope('viz_featuremaps'):
+        with tf.compat.v1.name_scope('viz_featuremaps'):
             if data_format == 'channels_first':
                 # N x C x H x W
-                tensor = tf.transpose(tensor, perm=(0, 2, 3, 1))
+                tensor = tf.transpose(a=tensor, perm=(0, 2, 3, 1))
             # N x H x W x C
             if mean_across_channels:
-                tensor = tf.reduce_mean(tensor, axis=3, keepdims=True)
+                tensor = tf.reduce_mean(input_tensor=tensor, axis=3, keepdims=True)
                 # N x H x W x 1
-                tensor = tf.transpose(tensor, perm=(1, 2, 3, 0))
+                tensor = tf.transpose(a=tensor, perm=(1, 2, 3, 0))
             else:
                 n, c, h, w = tensor.shape.as_list()
                 tensor = tf.reshape(tensor, (n*c, 1, h, w))
                 # N x 1 x H x W
-                tensor = tf.transpose(tensor, perm=(2, 3, 1, 0))
+                tensor = tf.transpose(a=tensor, perm=(2, 3, 1, 0))
             # H x W x 1 x N
 
             self._4d_tensor(name, tensor, **kwargs)
 
     def tiled_images(self, name, tensor, data_format='channels_last', **kwargs):
         """Log summary of feature maps / image activations."""
-        with tf.name_scope('viz_featuremaps'):
+        with tf.compat.v1.name_scope('viz_featuremaps'):
             if data_format == 'channels_first':
                 # N x C x H x W
-                tensor = tf.transpose(tensor, perm=(0, 2, 3, 1))
+                tensor = tf.transpose(a=tensor, perm=(0, 2, 3, 1))
             # N x H x W x C
-            tensor = tf.transpose(tensor, perm=(1, 2, 3, 0))
+            tensor = tf.transpose(a=tensor, perm=(1, 2, 3, 0))
             # H x W x C x N
             self._4d_tensor(name, tensor, **kwargs)
 
     def scalar(self, name, tensor, **kwargs):
         """Log summary of scalar."""
-        operation = tf.summary.scalar(name, tensor, **kwargs)
+        operation = tf.compat.v1.summary.scalar(name, tensor, **kwargs)
         self._register_cheap_op(operation)

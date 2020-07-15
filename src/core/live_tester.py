@@ -164,13 +164,13 @@ class LiveTester(object):
 
     def _post_model_build(self):
         """Prepare combined operation to copy model parameters over from CPU/GPU to CPU."""
-        with tf.variable_scope('copy2test'):
-            all_variables = tf.global_variables()
+        with tf.compat.v1.variable_scope('copy2test'):
+            all_variables = tf.compat.v1.global_variables()
             train_vars = dict([(v.name, v) for v in all_variables
                                if not v.name.startswith('test/')])
             test_vars = dict([(v.name, v) for v in all_variables
                               if v.name.startswith('test/')])
-            self._copy_variables_to_test_model_op = tf.tuple([
+            self._copy_variables_to_test_model_op = tf.tuple(tensors=[
                 test_vars['test/' + k].assign(train_vars[k]) for k in train_vars.keys()
                 if 'test/' + k in test_vars
             ])
@@ -196,7 +196,7 @@ class LiveTester(object):
                                ('metric', metrics_to_evaluate)):
             for name in tensors.keys():
                 name = '%s/test/%s' % (type_, name)
-                placeholder = tf.placeholder(dtype=np.float32, name=name + '_placeholder')
+                placeholder = tf.compat.v1.placeholder(dtype=np.float32, name=name + '_placeholder')
                 self.summary.scalar(name, placeholder)
                 self._placeholders[name.split('/')[-1]] = placeholder
 

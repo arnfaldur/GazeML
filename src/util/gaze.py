@@ -88,8 +88,8 @@ def tensorflow_angular_error_from_vector(v_true, v_pred):
         v_true_norm = tf.sqrt(tf.reduce_sum(tf.square(v_true), axis=1))
         v_pred_norm = tf.sqrt(tf.reduce_sum(tf.square(v_pred), axis=1))
 
-        sim = tf.div(tf.reduce_sum(tf.multiply(v_true, v_pred), axis=1),
-                     tf.multiply(v_true_norm, v_pred_norm))
+        sim = tf.math.divide(tf.reduce_sum(tf.math.multiply(v_true, v_pred), axis=1),
+                     tf.math.multiply(v_true_norm, v_pred_norm))
 
         # Floating point precision can cause sim values to be slightly outside of
         # [-1, 1] so we clip values
