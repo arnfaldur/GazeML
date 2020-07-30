@@ -11,7 +11,7 @@ import cv2 as cv
 import numpy as np
 import tensorflow as tf
 
-from datasources import Video, Webcam
+from datasources import Video, Webcam, EyeLink
 from models import ELG
 import util.gaze
 
@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Demonstration of landmarks localization.')
     parser.add_argument('-v', type=str, help='logging level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'])
+    parser.add_argument('--from_eyelink', type=str, help='Root of EyeLink dataset')
     parser.add_argument('--from_video', type=str, help='Use this video path instead of webcam')
     parser.add_argument('--record_video', type=str, help='Output path of video of demonstration.')
     parser.add_argument('--fullscreen', action='store_true')
@@ -38,6 +39,7 @@ if __name__ == '__main__':
 
     # Check if GPU is available
     from tensorflow.python.client import device_lib
+
     session_config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True))
     gpu_available = False
     try:
@@ -61,6 +63,12 @@ if __name__ == '__main__':
                                 tensorflow_session=session, batch_size=batch_size,
                                 data_format='NHWC' if gpu_available else 'NHWC',
                                 eye_image_shape=(108, 180))
+        if args.from_eyelink:
+            assert os.path.isdir(args.from_eyelink)
+            data_source = EyeLink(tensorflow_session=session, batch_size=batch_size,
+                                  dataset_root=args.from_eyelink,
+                                  data_format='NHWC',
+                                  eye_image_shape=(36, 60))
         else:
             data_source = Webcam(tensorflow_session=session, batch_size=batch_size,
                                  camera_id=args.camera_id, fps=args.fps,
@@ -101,6 +109,7 @@ if __name__ == '__main__':
             video_out_should_stop = False
             video_out_done = threading.Condition()
 
+
             def _record_frame():
                 print("recording fram")
                 global video_out
@@ -119,7 +128,7 @@ if __name__ == '__main__':
                             args.record_video, cv.VideoWriter_fourcc(*'H264'),
                             out_fps, (w, h),
                         )
-                    now_time = time.time()
+                    now_time = time.perf_counter()
                     if last_frame_time is not None:
                         time_diff = now_time - last_frame_time
                         while time_diff > 0.0:
@@ -129,6 +138,8 @@ if __name__ == '__main__':
                 video_out.release()
                 with video_out_done:
                     video_out_done.notify_all()
+
+
             record_thread = threading.Thread(target=_record_frame, name='record')
             record_thread.daemon = True
             record_thread.start()
@@ -136,9 +147,10 @@ if __name__ == '__main__':
         # Begin visualization thread
         inferred_stuff_queue = queue.Queue()
 
+
         def _visualize_output():
             last_frame_index = 0
-            last_frame_time = time.time()
+            last_frame_time = time.perf_counter()
             fps_history = []
             all_gaze_histories = []
 
@@ -168,7 +180,7 @@ if __name__ == '__main__':
                 for j in range(batch_size):
                     frame_index = output['frame_index'][j]
                     if frame_index not in data_source._frames:
-                        print("within frame index " + str(time.time()))
+                        print("within frame index " + str(time.perf_counter()))
                         continue
                     frame = data_source._frames[frame_index]
 
@@ -178,7 +190,7 @@ if __name__ == '__main__':
                     can_use_eyelid = np.all(heatmaps_amax[0:8] > 0.75)
                     can_use_iris = np.all(heatmaps_amax[8:16] > 0.8)
 
-                    start_time = time.time()
+                    start_time = time.perf_counter()
                     eye_index = output['eye_index'][j]
                     bgr = frame['bgr']
                     eye = frame['eyes'][eye_index]
@@ -198,20 +210,20 @@ if __name__ == '__main__':
                     if can_use_eyelid:
                         cv.polylines(
                             eye_image_annotated,
-                            [np.round(eye_upscale*eye_landmarks[0:8]).astype(np.int32)
-                                                                     .reshape(-1, 1, 2)],
+                            [np.round(eye_upscale * eye_landmarks[0:8]).astype(np.int32)
+                                 .reshape(-1, 1, 2)],
                             isClosed=True, color=(255, 255, 0), thickness=1, lineType=cv.LINE_AA,
                         )
                     if can_use_iris:
                         cv.polylines(
                             eye_image_annotated,
-                            [np.round(eye_upscale*eye_landmarks[8:16]).astype(np.int32)
-                                                                      .reshape(-1, 1, 2)],
+                            [np.round(eye_upscale * eye_landmarks[8:16]).astype(np.int32)
+                                 .reshape(-1, 1, 2)],
                             isClosed=True, color=(0, 255, 255), thickness=1, lineType=cv.LINE_AA,
                         )
                         cv.drawMarker(
                             eye_image_annotated,
-                            tuple(np.round(eye_upscale*eye_landmarks[16, :]).astype(np.int32)),
+                            tuple(np.round(eye_upscale * eye_landmarks[16, :]).astype(np.int32)),
                             color=(0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=4,
                             thickness=1, line_type=cv.LINE_AA,
                         )
@@ -310,7 +322,7 @@ if __name__ == '__main__':
                             thickness=1, line_type=cv.LINE_AA,
                         )
 
-                    dtime = 1e3*(time.time() - start_time)
+                    dtime = 1e3 * (time.perf_counter() - start_time)
                     if 'visualization' not in frame['time']:
                         frame['time']['visualization'] = dtime
                     else:
@@ -324,13 +336,13 @@ if __name__ == '__main__':
 
                     if eye_index == len(frame['eyes']) - 1:
                         # Calculate timings
-                        frame['time']['after_visualization'] = time.time()
-                        fps = int(np.round(1.0 / (time.time() - last_frame_time)))
+                        frame['time']['after_visualization'] = time.perf_counter()
+                        fps = int(np.round(1.0 / (time.perf_counter() - last_frame_time)))
                         fps_history.append(fps)
                         if len(fps_history) > 60:
                             fps_history = fps_history[-60:]
                         fps_str = '%d FPS' % np.mean(fps_history)
-                        last_frame_time = time.time()
+                        last_frame_time = time.perf_counter()
                         fh, fw, _ = bgr.shape
                         cv.putText(bgr, fps_str, org=(fw - 110, fh - 20),
                                    fontFace=cv.FONT_HERSHEY_DUPLEX, fontScale=0.8,
@@ -363,6 +375,7 @@ if __name__ == '__main__':
                                 'latency: %dms' % latency,
                             ])
                             print('%08d [%s] %s' % (frame_index, fps_str, timing_string))
+
 
         visualize_thread = threading.Thread(target=_visualize_output, name='visualization')
         visualize_thread.daemon = True
