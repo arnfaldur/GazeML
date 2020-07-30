@@ -37,7 +37,7 @@ class TimeManager(object):
 
         Also updates the `last time` record based on identifier.
         """
-        current_time = time.time()
+        current_time = time.perf_counter()
         if identifier not in self._last_time or \
            (current_time - self._last_time[identifier] > seconds):
             self._last_time[identifier] = current_time
@@ -66,7 +66,7 @@ class Timer(object):
     def start(self):
         """Cache starting time."""
         # assert not self._active
-        self._start_time = time.time()
+        self._start_time = time.perf_counter()
         self._active = True
 
     def end(self):
@@ -74,7 +74,7 @@ class Timer(object):
         assert self._active and self._start_time > 0
 
         # Calculate difference
-        end_time = time.time()
+        end_time = time.perf_counter()
         time_difference = end_time - self._start_time
 
         # Record timing (and trim history)

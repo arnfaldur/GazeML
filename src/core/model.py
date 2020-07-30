@@ -373,7 +373,7 @@ class BaseModel(object):
         data_source = next(iter(self._train_data.values()))
         while True:
             fetches = dict(self.output_tensors['train'], **data_source.output_tensors)
-            start_time = time.time()
+            start_time = time.perf_counter()
             outputs = self._tensorflow_session.run(
                 fetches=fetches,
                 feed_dict={
@@ -381,5 +381,5 @@ class BaseModel(object):
                     self.use_batch_statistics: True,
                 },
             )
-            outputs['inference_time'] = 1e3*(time.time() - start_time)
+            outputs['inference_time'] = 1e3*(time.perf_counter() - start_time)
             yield outputs

@@ -22,7 +22,7 @@ class Video(FramesSource):
         super().__init__(staging=False, **kwargs)
 
     def frame_generator(self):
-        """Read frame from webcam."""
+        """Read frame from video."""
         last_frame = None
         while True:
             ret, frame = self._capture.read()
@@ -37,13 +37,13 @@ class Video(FramesSource):
         """Read frame from video (without skipping)."""
         generate_frame = self.frame_generator()
         while True:
-            before_frame_read = time.time()
+            before_frame_read = time.perf_counter()
             try:
                 bgr = next(generate_frame)
             except StopIteration:
                 break
             if bgr is not None:
-                after_frame_read = time.time()
+                after_frame_read = time.perf_counter()
                 with self._read_mutex:
                     self._frame_read_queue.put((before_frame_read, bgr, after_frame_read))
 

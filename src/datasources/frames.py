@@ -53,22 +53,13 @@ class FramesSource(BaseDataSource):
         """Short name specifying source."""
         return self._short_name
 
-    def frame_read_job(self):
-        """Read frame from webcam."""
-        generate_frame = self.frame_generator()
-        while True:
-            before_frame_read = time.time()
-            bgr = next(generate_frame)
-            if bgr is not None:
-                after_frame_read = time.time()
-                with self._read_mutex:
-                    self._frame_read_queue.queue.clear()
-                    self._frame_read_queue.put_nowait((before_frame_read, bgr, after_frame_read))
-        self._open = False
-
     def frame_generator(self):
         """Read frame from webcam."""
         raise NotImplementedError('Frames::frame_generator not implemented.')
+
+    def frame_read_job(self):
+        """Read frame from webcam."""
+        raise NotImplementedError('Frames::frame_read_job not implemented.')
 
     def entry_generator(self, yield_just_one=False):
         """Generate eye image entries by detecting faces and facial landmarks."""
@@ -107,7 +98,7 @@ class FramesSource(BaseDataSource):
                 self.calculate_smoothed_landmarks(frame)
                 self.segment_eyes(frame)
                 self.update_face_boxes(frame)
-                frame['time']['after_preprocessing'] = time.time()
+                frame['time']['after_preprocessing'] = time.perf_counter()
 
                 for i, eye_dict in enumerate(frame['eyes']):
                     yield {
@@ -155,6 +146,7 @@ class FramesSource(BaseDataSource):
                 except AttributeError:  # Using OpenCV LBP detector on CPU
                     l, t, w, h = d
                 faces.append((l, t, w, h))
+                break # TODO: consider more than one face
             faces.sort(key=lambda bbox: bbox[0])
             frame['faces'] = faces
             frame['last_face_detect_index'] = frame['frame_index']
