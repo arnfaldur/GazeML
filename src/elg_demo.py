@@ -325,7 +325,7 @@ if __name__ == '__main__':
                     if eye_index == len(frame['eyes']) - 1:
                         # Calculate timings
                         frame['time']['after_visualization'] = time.time()
-                        fps = int(np.round(1.0 / (time.time() - last_frame_time)))
+                        fps = int(np.round(1.0 / (time.time() - last_frame_time+0.0000001)))
                         fps_history.append(fps)
                         if len(fps_history) > 60:
                             fps_history = fps_history[-60:]

@@ -114,6 +114,7 @@ class FramesSource(BaseDataSource):
                         'frame_index': np.int64(current_index),
                         'eye': eye_dict['image'],
                         'eye_index': np.uint8(i),
+                        'eye_coords': eye_dict['coords'],
                     }
 
         finally:
@@ -237,6 +238,8 @@ class FramesSource(BaseDataSource):
             for corner1, corner2, is_left in [(2, 3, True), (0, 1, False)]:
                 x1, y1 = landmarks[corner1, :]
                 x2, y2 = landmarks[corner2, :]
+                x = (x1 + x2) / 2
+                y = (y1 + y2) / 2
                 eye_width = 1.5 * np.linalg.norm(landmarks[corner1, :] - landmarks[corner2, :])
                 if eye_width == 0.0:
                     continue
@@ -281,6 +284,7 @@ class FramesSource(BaseDataSource):
                 if is_left:
                     eye_image = np.fliplr(eye_image)
                 eyes.append({
+                    'coords': (x,y),
                     'image': eye_image,
                     'inv_landmarks_transform_mat': inv_transform_mat,
                     'side': 'left' if is_left else 'right',
