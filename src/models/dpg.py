@@ -6,7 +6,6 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 from core import BaseDataSource, BaseModel
-from datasources import UnityEyes
 import util.gaze
 
 

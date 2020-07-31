@@ -5,6 +5,8 @@ import argparse
 import coloredlogs
 import tensorflow as tf
 
+from models.eye_tracker import EyeTracker
+
 if __name__ == '__main__':
 
     # Set global log level
@@ -43,12 +45,11 @@ if __name__ == '__main__':
             shuffle=True,
             staging=True,
             eye_image_shape=(36, 60),
-            heatmaps_scale=1.0 / elg_first_layer_stride,
         )
 
         # Define model
         from models import ELG
-        model = ELG(
+        model = EyeTracker(
             # Tensorflow session
             # Note: The same session must be used for the model and the data sources.
             session,
@@ -84,7 +85,7 @@ if __name__ == '__main__':
             ],
 
             # Data sources for training (and testing).
-            train_data={'synthetic': eyelink},
+            train_data={'eyelink': eyelink},
         )
 
         tf.compat.v1.summary.FileWriter('./logs', session.graph)

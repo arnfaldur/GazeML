@@ -12,6 +12,7 @@ import numpy as np
 import tensorflow as tf
 
 from datasources import Video, Webcam, EyeLink
+from datasources.eyelink_frames import EyeLinkFrames
 from models import ELG
 import util.gaze
 
@@ -63,9 +64,9 @@ if __name__ == '__main__':
                                 tensorflow_session=session, batch_size=batch_size,
                                 data_format='NHWC' if gpu_available else 'NHWC',
                                 eye_image_shape=(108, 180))
-        if args.from_eyelink:
+        elif args.from_eyelink:
             assert os.path.isdir(args.from_eyelink)
-            data_source = EyeLink(tensorflow_session=session, batch_size=batch_size,
+            data_source = EyeLinkFrames(tensorflow_session=session, batch_size=batch_size,
                                   dataset_root=args.from_eyelink,
                                   data_format='NHWC',
                                   eye_image_shape=(36, 60))
@@ -203,7 +204,7 @@ if __name__ == '__main__':
                         eye_image = np.fliplr(eye_image)
 
                     # Embed eye image and annotate for picture-in-picture
-                    eye_upscale = 2
+                    eye_upscale = 1
                     eye_image_raw = cv.cvtColor(cv.equalizeHist(eye_image), cv.COLOR_GRAY2BGR)
                     eye_image_raw = cv.resize(eye_image_raw, (0, 0), fx=eye_upscale, fy=eye_upscale)
                     eye_image_annotated = np.copy(eye_image_raw)
@@ -234,6 +235,7 @@ if __name__ == '__main__':
                     v2 = v1 + eh
                     u0 = 0 if eye_side == 'left' else ew
                     u1 = u0 + ew
+                    print(f"eh:{eh}, ew:{ew}, v0:{v0}, v1:{v1}, v2:{v2}, u0:{u0}, u1:{u1}")
                     bgr[v0:v1, u0:u1] = eye_image_raw
                     bgr[v1:v2, u0:u1] = eye_image_annotated
 
