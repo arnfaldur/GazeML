@@ -15,8 +15,6 @@ def _tf_mse(x, y):
 
 
 class EyeTracker(BaseModel):
-    """ELG architecture as introduced in [Park et al. ETRA'18]."""
-
     def __init__(self, tensorflow_session=None, first_layer_stride=1,
                  num_modules=2, num_feature_maps=32, **kwargs):
         """Specify ELG-specific parameters."""
@@ -49,7 +47,7 @@ class EyeTracker(BaseModel):
             _, eh, ew, _ = input_tensors['eye'].shape.as_list()
         else:
             _, _, eh, ew = input_tensors['eye'].shape.as_list()
-        return 'ELG_i%dx%d_f%dx%d_n%d_m%d' % (
+        return 'Eye_Tracker_i%dx%d_f%dx%d_n%d_m%d' % (
             ew, eh,
             int(ew / self._hg_first_layer_stride),
             int(eh / self._hg_first_layer_stride),
@@ -68,20 +66,37 @@ class EyeTracker(BaseModel):
 
         data_source = next(iter(data_sources.values()))
         input_tensors = data_source.output_tensors
-        x = input_tensors['eye']
-        y1 = input_tensors['heatmaps'] if 'heatmaps' in input_tensors else None
-        y2 = input_tensors['landmarks'] if 'landmarks' in input_tensors else None
-        y3 = input_tensors['radius'] if 'radius' in input_tensors else None
+        x1 = input_tensors['eyes']
+        x2 = input_tensors['click_coord']
+        x3 = input_tensors['is_clicking']
+        y1 = input_tensors['look_coord'] if 'look_coord' in input_tensors else None
 
         with tf.compat.v1.variable_scope('input_data'):
-            self.summary.feature_maps('eyes', x, data_format=self._data_format_longer)
+            for i, eye in enumerate(x1):
+                self.summary.feature_maps(f'eye-{i}', eye, data_format=self._data_format_longer)
+            self.summary.feature_maps('click_coord', x2, data_format=self._data_format_longer)
+            self.summary.feature_maps('is_clicking', x3, data_format=self._data_format_longer)
             if y1 is not None:
-                self.summary.feature_maps('hmaps_true', y1, data_format=self._data_format_longer)
+                self.summary.feature_maps('look_coord', y1, data_format=self._data_format_longer)
+
+        with tf.compat.v1.variable_scope('eye_preprocessing'):
+            for i, eye in enumerate(x1):
+                output = self._tensorflow_session.run(
+                    fetches={
+                        **self._elg.output_tensors['train'],
+                        **eye,
+                    },
+                    feed_dict={
+                        self.is_training: False,
+                        self.use_batch_statistics: True,
+                    },
+                )
+        x4 = output['']
 
         outputs = {}
         loss_terms = {}
         metrics = {}
 
-
+        print(1//0)
         # Define outputs
         return outputs, loss_terms, metrics

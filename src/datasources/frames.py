@@ -23,7 +23,7 @@ class FramesSource(BaseDataSource):
                  tensorflow_session: tf.compat.v1.Session,
                  batch_size: int,
                  eye_image_shape: Tuple[int, int],
-                 staging: bool=False,
+                 staging: bool = False,
                  **kwargs):
         """Create queues and threads to read and preprocess data."""
         self._eye_image_shape = eye_image_shape
@@ -146,7 +146,7 @@ class FramesSource(BaseDataSource):
                 except AttributeError:  # Using OpenCV LBP detector on CPU
                     l, t, w, h = d
                 faces.append((l, t, w, h))
-                break # TODO: consider more than one face
+                break  # TODO: consider more than one face
             faces.sort(key=lambda bbox: bbox[0])
             frame['faces'] = faces
             frame['last_face_detect_index'] = frame['frame_index']
@@ -164,7 +164,7 @@ class FramesSource(BaseDataSource):
         landmarks = []
         for face in frame['faces']:
             l, t, w, h = face
-            rectangle = dlib.rectangle(left=int(l), top=int(t), right=int(l+w), bottom=int(t+h))
+            rectangle = dlib.rectangle(left=int(l), top=int(t), right=int(l + w), bottom=int(t + h))
             landmarks_dlib = predictor(frame['grey'], rectangle)
 
             def tuple_from_dlib_shape(index):
@@ -276,6 +276,7 @@ class FramesSource(BaseDataSource):
                     'image': eye_image,
                     'inv_landmarks_transform_mat': inv_transform_mat,
                     'side': 'left' if is_left else 'right',
+                    'eye_coords': ((x1 + x2) / 2, (y1 + y2) / 2)
                 })
         frame['eyes'] = eyes
 
@@ -305,6 +306,7 @@ class FramesSource(BaseDataSource):
             # hdy = 0.5 * face_width * (1. + np.abs(np.sin(roll)))
             # print(np.degrees(roll), face_width, hdx, hdy)
             # frame['faces'][i] = (int(cx - hdx), int(cy - hdy), int(2*hdx), int(2*hdy))
+
 
 _face_detector = None
 _landmarks_predictor = None

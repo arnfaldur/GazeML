@@ -40,15 +40,11 @@ if __name__ == '__main__':
             batch_size=batch_size,
             data_format='NCHW',
             dataset_root='../datasets/EyeLink',
-            min_after_dequeue=1000,
-            generate_heatmaps=True,
-            shuffle=True,
-            staging=True,
             eye_image_shape=(36, 60),
         )
 
         # Define model
-        from models import ELG
+        from models import EyeTracker
         model = EyeTracker(
             # Tensorflow session
             # Note: The same session must be used for the model and the data sources.
@@ -76,10 +72,7 @@ if __name__ == '__main__':
             # the `loss_terms` output of `BaseModel::build_model`.
             learning_schedule=[
                 {
-                    'loss_terms_to_optimize': {
-                        'heatmaps_mse': ['hourglass'],
-                        'radius_mse': ['radius'],
-                    },
+                    'loss_terms_to_optimize': {'dummy': ['hourglass', 'radius']},
                     'learning_rate': 1e-3,
                 },
             ],
@@ -91,6 +84,6 @@ if __name__ == '__main__':
         tf.compat.v1.summary.FileWriter('./logs', session.graph)
 
         # Train this model for a set number of epochs
-        model.train(
-            num_epochs=100,
-        )
+        # model.train(
+        #     num_epochs=100,
+        # )
