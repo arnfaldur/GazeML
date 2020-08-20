@@ -231,8 +231,7 @@ class BaseDataSource(object):
                 if not self.testing:
                     continue
                 else:
-                    logger.debug('Reached EOF in %s' % threading
-                    .current_thread().name)
+                    logger.debug('Reached EOF in %s' % threading.current_thread().name)
                     break
             if entry is not None:
                 self._fread_queue.put(entry)

@@ -32,14 +32,6 @@ class EyeLink(BaseDataSource):
         # Create global index over all specified keys
         self._dataset_root = dataset_root
 
-        self._mutex = Lock()
-        self._proc_mutex = Lock()
-        self._read_mutex = Lock()
-        self._current_index = 0
-        self._memoized_entry_count = None
-        self._entries = {}
-        self._indices = []
-
         from datasources import EyeLinkFrames
         self._eyelink_frames = EyeLinkFrames(
             tensorflow_session,
@@ -109,9 +101,9 @@ class EyeLink(BaseDataSource):
             super().reset()
             self._current_index = 0
 
-    def frame_generator(self):
-        """Read entry from EyeLink dataset."""
-        while True:
+    def entry_generator(self, yield_just_one=False):
+        """Generate eye image entries by detecting faces and facial landmarks."""
+        while range(1) if yield_just_one else True:
             for session in os.scandir(self._dataset_root):
                 for sub in sorted(os.scandir(session), key=lambda x: x.path):
                     if sub.name == "length.txt":
@@ -122,60 +114,16 @@ class EyeLink(BaseDataSource):
                     with open(data_path) as f:
                         for line in f:
                             i, time, look_coord, click_coord, is_clicking = self._parse(line)
+                            output = next(self._inferrer)
                             yield {
                                 # TODO: þetta þarf að verða tensor eða eitthvað álíka
                                 # 'video_frame_index': i,
                                 # 'subsession': sub.name,
+                                **output,
                                 'look_coord': np.asarray(look_coord),
                                 'click_coord': np.asarray(click_coord),
                                 'is_clicking': np.bool_(is_clicking),
                             }
-
-    def frame_read_job(self):
-        """Read frame from video (without skipping)."""
-        generate_frame = self.frame_generator()
-        while True:
-            before_frame_read = time.perf_counter()
-            try:
-                frame = next(generate_frame)
-            except StopIteration:
-                break
-            if frame is not None:
-                after_frame_read = time.perf_counter()
-                with self._read_mutex:
-                    self._frame_read_queue.put((before_frame_read, frame, after_frame_read))
-
-        print(f'EyeLink dataset {self._dataset_root} closed.')
-        self._open = False
-
-    def entry_generator(self, yield_just_one=False):
-        """Generate eye image entries by detecting faces and facial landmarks."""
-        while range(1) if yield_just_one else True:
-            # Grab frame
-            with self._proc_mutex:
-                before_frame_read, frame, after_frame_read = self._frame_read_queue.get()
-                current_index = self._last_frame_index + 1
-                self._last_frame_index = current_index
-
-
-                output = next(self._inferrer)
-                entry = {
-                    'frame_index': current_index,
-                    **frame,
-                    **output,
-                }
-
-                self._entries[current_index] = entry
-                self._indices.append(current_index)
-
-                # Keep just a few frames around
-                frames_to_keep = 120
-                if len(self._indices) > frames_to_keep:
-                    for index in self._indices[:-frames_to_keep]:
-                        del self._entries[index]
-                    self._indices = self._indices[-frames_to_keep:]
-
-            yield entry
 
     def preprocess_entry(self, entry):
         return entry
